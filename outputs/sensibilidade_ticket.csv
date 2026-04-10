@@ -1,0 +1,6 @@
+﻿parametro,cenario,fator,processos_necessarios,delta_absoluto,delta_percentual
+Ticket Medio,-20%,0.8,25152,5013,24.9
+Ticket Medio,-10%,0.9,22372,2233,11.1
+Ticket Medio,Base,1.0,20139,0,0.0
+Ticket Medio,+10%,1.1,18309,-1830,-9.1
+Ticket Medio,+20%,1.2,16794,-3345,-16.6

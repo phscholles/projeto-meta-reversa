@@ -1,0 +1,13 @@
+# Ambiente virtual
+venv/
+
+# Bytecode Python
+__pycache__/
+*.py[cod]
+
+# Dados (sensíveis/proprietários)
+# data/
+
+# Outputs gerados
+# outputs/
+*.xlsx
