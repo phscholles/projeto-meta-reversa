@@ -6,8 +6,8 @@ __pycache__/
 *.py[cod]
 
 # Dados (sensíveis/proprietários)
-# data/
+data/
 
 # Outputs gerados
-# outputs/
+outputs/
 *.xlsx
