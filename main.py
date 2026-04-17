@@ -6,7 +6,6 @@ MBA em Data Science e Analytics - USP/Esalq
 
 import os
 import pandas as pd
-from datetime import datetime
 from src import (
     data_wrangling,
     analise_historica,
@@ -18,12 +17,11 @@ from src import (
 
 ARQUIVO_PROCESSOS = 'data/db_base_processos.csv'
 ARQUIVO_METAS     = 'data/db_metas.csv'
-DATA_REFERENCIA   = datetime(2026, 2, 10)
 DIR_OUTPUTS       = 'outputs'
 
 
-def _salvar_outputs(metricas, df_rec, tabela_aberturas, fat_real, fat_previsto,
-                    performance, df_sens_ticket, df_sens_lead):
+def _salvar_outputs(metricas, df_rec, tabela_aberturas, tabela_faturamento,
+                    resultado_backtest, df_sens_ticket, df_sens_lead):
     """Persiste todos os resultados do pipeline em arquivos CSV na pasta outputs/."""
     os.makedirs(DIR_OUTPUTS, exist_ok=True)
 
@@ -50,9 +48,14 @@ def _salvar_outputs(metricas, df_rec, tabela_aberturas, fat_real, fat_previsto,
         f'{DIR_OUTPUTS}/share_modal_por_servico.csv', index=False, encoding='utf-8-sig'
     )
 
-    # --- Tabela de aberturas (Tabela 1 do TCC) ---
+    # --- Tabela de aberturas (Tabela 3 do TCC) ---
     tabela_aberturas.to_csv(
         f'{DIR_OUTPUTS}/tabela_aberturas.csv', encoding='utf-8-sig'
+    )
+
+    # --- Processos necessários por mês-meta (Tabela 4 do TCC) ---
+    tabela_faturamento.to_csv(
+        f'{DIR_OUTPUTS}/processos_por_mes_meta.csv', encoding='utf-8-sig'
     )
 
     # --- Recomendações detalhadas ---
@@ -60,17 +63,31 @@ def _salvar_outputs(metricas, df_rec, tabela_aberturas, fat_real, fat_previsto,
         f'{DIR_OUTPUTS}/recomendacoes_detalhadas.csv', index=False, encoding='utf-8-sig'
     )
 
-    # --- Backtesting mensal (Tabela 3 do TCC) ---
-    performance['df_detalhado'].to_csv(
+    # --- Backtesting: série mensal consolidada dos dois splits ---
+    r1, r2 = resultado_backtest
+    backtesting_mensal = pd.concat(
+        [r['agregado'] for r in (r1, r2) if r is not None],
+        ignore_index=True
+    )
+    backtesting_mensal.to_csv(
         f'{DIR_OUTPUTS}/backtesting_mensal.csv', index=False, encoding='utf-8-sig'
     )
 
-    # --- Métricas de performance ---
-    pd.DataFrame([{
-        'MAPE (%)':     round(performance['mape'], 2),
-        'BIAS (%)':     round(performance['bias'], 2),
-        'HIT_RATE (%)': round(performance['hit_rate'], 2),
-    }]).to_csv(
+    # --- Performance consolidada dos dois splits ---
+    perf_rows = []
+    for r in (r1, r2):
+        if r is None:
+            continue
+        m = r['metricas']
+        perf_rows.append({
+            'split':         r['split'],
+            'ano_teste':     r['ano_teste'],
+            'MAPE (%)':      round(m['mape'], 2),
+            'BIAS (%)':      round(m['bias'], 2),
+            'HIT_RATE (%)':  round(m['hit_rate'], 2),
+            'n_meses':       m['n'],
+        })
+    pd.DataFrame(perf_rows).to_csv(
         f'{DIR_OUTPUTS}/performance_backtesting.csv', index=False, encoding='utf-8-sig'
     )
 
@@ -103,35 +120,34 @@ def executar_pipeline():
     metricas = analise_historica.executar(df)
 
     # Etapa 2: Distribuição temporal de aberturas
-    df_dist = distribuicao_temporal.executar(df_metas, metricas, DATA_REFERENCIA)
+    df_dist = distribuicao_temporal.executar(df_metas, metricas)
 
     # Etapa 3: Cálculo de meta reversa
-    df_rec, tabela_aberturas = meta_reversa.executar(df_dist, metricas)
+    df_rec, tabela_aberturas, tabela_faturamento = meta_reversa.executar(df_dist, metricas)
 
-    # Etapa 4: Backtesting out-of-sample (métricas recalculadas internamente só com 2023-2024)
-    fat_real, fat_previsto, performance = backtesting.executar(df, metricas)
+    # Etapa 4: Backtesting out-of-sample (simulação reversa com metas ex-post; dois splits)
+    resultado_backtest = backtesting.executar(df)
 
     # Etapa 5: Análise de sensibilidade
     df_sens_ticket, df_sens_lead = analise_sensibilidade.executar(df_metas, metricas)
 
     # Salvar todos os outputs
-    _salvar_outputs(metricas, df_rec, tabela_aberturas, fat_real, fat_previsto,
-                    performance, df_sens_ticket, df_sens_lead)
+    _salvar_outputs(metricas, df_rec, tabela_aberturas, tabela_faturamento,
+                    resultado_backtest, df_sens_ticket, df_sens_lead)
 
     print("\n" + "=" * 80)
     print("PIPELINE CONCLUIDO")
     print("=" * 80)
 
     return {
-        'df_processos':      df,
-        'df_metas':          df_metas,
-        'metricas':          metricas,
-        'distribuicao':      df_dist,
-        'recomendacoes':     df_rec,
-        'tabela_aberturas':  tabela_aberturas,
-        'faturamento_real':  fat_real,
-        'fat_previsto':      fat_previsto,
-        'performance':       performance,
+        'df_processos':         df,
+        'df_metas':             df_metas,
+        'metricas':             metricas,
+        'distribuicao':         df_dist,
+        'recomendacoes':        df_rec,
+        'tabela_aberturas':     tabela_aberturas,
+        'tabela_faturamento':   tabela_faturamento,
+        'backtest':             resultado_backtest,
         'sensibilidade_ticket': df_sens_ticket,
         'sensibilidade_lead':   df_sens_lead,
     }

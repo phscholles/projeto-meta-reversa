@@ -3,8 +3,9 @@ Etapa 3: Cálculo de Meta Reversa
 Calcula quantos processos abrir por (modal, serviço) e mês para atingir cada meta.
 """
 
+import math
+
 import pandas as pd
-import numpy as np
 
 
 def executar(df_dist, metricas):
@@ -21,10 +22,15 @@ def executar(df_dist, metricas):
 
         # Buscar ticket específico; fallback para ticket médio do modal
         ticket = metricas['ticket_modal_servico'].get((modal, servico))
+        ticket_fonte = 'especifico'
         if ticket is None or ticket == 0:
-            ticket = metricas['ticket_modal'][modal]
+            ticket = metricas['ticket_modal'].get(modal, 0)
+            ticket_fonte = 'fallback_modal'
+        if ticket == 0:
+            print(f"  AVISO: sem ticket para ({modal}, {servico}) - combinacao ignorada")
+            continue
 
-        processos = int(np.ceil(meta_modal_servico / ticket))
+        processos = int(math.ceil(meta_modal_servico / ticket))
 
         recomendacoes.append({
             'mes_meta':              row['mes_meta'],
@@ -33,11 +39,12 @@ def executar(df_dist, metricas):
             'modal':                 modal,
             'meta_modal_servico':    meta_modal_servico,
             'ticket':                ticket,
+            'ticket_fonte':          ticket_fonte,
             'processos_necessarios': processos,
             'valor_esperado':        processos * ticket,
             'mes_abertura':          row['mes_abertura'],
             'ano_abertura':          row['ano_abertura'],
-            'data_limite':           row['data_limite']
+            'data_abertura_limite':  row['data_abertura_limite']
         })
 
     df_rec = pd.DataFrame(recomendacoes)
@@ -92,22 +99,28 @@ def executar(df_dist, metricas):
     print("RESUMO CONSOLIDADO")
     print("="*80)
 
-    tab_calc = tabela_aberturas.drop('TOTAL')
+    if 'TOTAL' in tabela_aberturas.index:
+        tab_calc = tabela_aberturas.drop('TOTAL')
+    else:
+        tab_calc = tabela_aberturas
     total_geral = tab_calc.sum().sum()
 
-    print("\nTotal por Serviço:")
-    for servico in tab_calc.columns.get_level_values(0).unique():
-        total = tab_calc[servico].sum().sum()
-        pct   = total / total_geral * 100
-        print(f"  {servico}: {total:,} processos ({pct:.1f}%)")
-
-    print("\nTotal por Modal:")
-    for modal in ['Marítimo', 'Aéreo', 'Rodoviário']:
-        if modal in tab_calc.columns.get_level_values(1):
-            total = tab_calc.xs(modal, level=1, axis=1).sum().sum()
+    if total_geral > 0:
+        print("\nTotal por Serviço:")
+        for servico in tab_calc.columns.get_level_values(0).unique():
+            total = tab_calc[servico].sum().sum()
             pct   = total / total_geral * 100
-            print(f"  {modal}: {total:,} processos ({pct:.1f}%)")
+            print(f"  {servico}: {total:,} processos ({pct:.1f}%)")
 
-    print(f"\nTotal Geral: {total_geral:,} processos")
+        print("\nTotal por Modal:")
+        for modal in ['Marítimo', 'Aéreo', 'Rodoviário']:
+            if modal in tab_calc.columns.get_level_values(1):
+                total = tab_calc.xs(modal, level=1, axis=1).sum().sum()
+                pct   = total / total_geral * 100
+                print(f"  {modal}: {total:,} processos ({pct:.1f}%)")
 
-    return df_rec, tabela_aberturas
+        print(f"\nTotal Geral: {total_geral:,} processos")
+    else:
+        print("\nAVISO: nenhum processo recomendado - metas ou ticket zerados")
+
+    return df_rec, tabela_aberturas, tabela_faturamento

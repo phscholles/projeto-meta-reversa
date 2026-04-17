@@ -5,7 +5,6 @@ sobre as recomendações de abertura de processos.
 """
 
 import pandas as pd
-import numpy as np
 from math import ceil
 
 
@@ -16,8 +15,8 @@ NOMES_TICKET    = ['-20%', '-10%', 'Base', '+10%', '+20%']
 NOMES_LEAD_TIME = ['-50%', '-20%', 'Base', '+20%', '+50%']
 
 
-def _calcular_processos_totais(df_metas, metricas, fator_ticket=1.0, fator_lead_time=1.0):
-    """Recalcula o total de processos necessários dado fatores de ajuste nos parâmetros."""
+def _calcular_processos_totais(df_metas, metricas, fator_ticket=1.0):
+    """Recalcula o total de processos necessários dado um fator de ajuste no ticket."""
     total = 0
     for _, meta_row in df_metas.iterrows():
         servico      = meta_row['servico']
@@ -33,9 +32,13 @@ def _calcular_processos_totais(df_metas, metricas, fator_ticket=1.0, fator_lead_
 
             ticket_base = metricas['ticket_modal_servico'].get((modal, servico))
             if ticket_base is None or ticket_base == 0:
-                ticket_base = metricas['ticket_modal'][modal]
+                ticket_base = metricas['ticket_modal'].get(modal, 0)
+            if ticket_base == 0:
+                continue
 
             ticket_ajustado = ticket_base * fator_ticket
+            if ticket_ajustado <= 0:
+                continue
             processos = ceil(meta_modal / ticket_ajustado)
             total += processos
 
@@ -48,6 +51,18 @@ def executar(df_metas, metricas):
     print("="*80)
 
     processos_base = _calcular_processos_totais(df_metas, metricas)
+
+    if processos_base == 0:
+        print("\nAVISO: base de processos eh zero - analise de sensibilidade de ticket ignorada")
+        df_ticket = pd.DataFrame(columns=[
+            'parametro', 'cenario', 'fator', 'processos_necessarios',
+            'delta_absoluto', 'delta_percentual'
+        ])
+        df_lead = pd.DataFrame(columns=[
+            'parametro', 'cenario', 'modal', 'fator',
+            'lead_time_base_dias', 'lead_time_ajustado_dias', 'delta_dias'
+        ])
+        return df_ticket, df_lead
 
     # --- Sensibilidade ao Ticket Médio ---
     print("\nImpacto de variacoes no Ticket Medio (total de processos necessarios):")
@@ -79,7 +94,10 @@ def executar(df_metas, metricas):
     for nome, fator in zip(NOMES_LEAD_TIME, VARIACOES_LEAD_TIME):
         print(f"  Cenario {nome}:")
         for modal in ['Marítimo', 'Aéreo', 'Rodoviário']:
-            lt_base    = metricas['lead_times'][modal]['mediano']
+            lt_info = metricas['lead_times'].get(modal)
+            if lt_info is None or 'mediano' not in lt_info:
+                continue
+            lt_base    = lt_info['mediano']
             lt_ajust   = round(lt_base * (1 + fator))
             delta_dias = lt_ajust - lt_base
             sinal = '+' if delta_dias >= 0 else ''
