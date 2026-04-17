@@ -11,3 +11,6 @@ data/
 # Outputs gerados
 outputs/
 *.xlsx
+
+# Documentação técnica interna
+etapas_pipeline.md
