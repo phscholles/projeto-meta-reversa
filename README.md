@@ -80,7 +80,8 @@ projeto_meta_reversa/
 │   ├── distribuicao_temporal.py     # Planejamento temporal de aberturas
 │   ├── meta_reversa.py              # Conversão de meta em processos
 │   ├── backtesting.py               # Validação out-of-sample
-│   └── analise_sensibilidade.py     # Análise de cenários
+│   ├── analise_sensibilidade.py     # Análise de cenários
+│   └── decomposicao_bias.py         # Diagnóstico auxiliar (standalone)
 ├── data/                            # Histórico de processos e metas
 └── outputs/                         # Resultados gerados
 ```
@@ -101,6 +102,8 @@ O pipeline gera um conjunto de arquivos CSV em `outputs/`:
 | `lead_times.csv` | Lead times históricos por modal |
 | `ticket_medio_modal_servico.csv` | Ticket médio por combinação |
 | `share_modal_por_servico.csv` | Distribuição de modais por serviço |
+| `share_geral_modal.csv` | Share geral de cada modal no faturamento total |
+| `decomposicao_bias.csv` | Decomposição do BIAS do backtesting (gerado pelo módulo auxiliar) |
 
 ## Metodologia
 
