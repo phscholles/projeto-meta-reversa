@@ -24,6 +24,15 @@ def executar(df, verbose=True):
         print("\nLead Times por Modal (dias):")
         print(lead_times)
 
+    # Share geral por modal (por faturamento)
+    fat_por_modal_total = df.groupby('modal')['vlr_faturamento'].sum()
+    share_geral_modal = (fat_por_modal_total / fat_por_modal_total.sum() * 100).round(2)
+
+    if verbose:
+        print("\nShare Geral por Modal (%) — por faturamento:")
+        for modal, pct in share_geral_modal.items():
+            print(f"  {modal}: {pct:.1f}%")
+
     # Share de modal dentro de cada serviço (por faturamento)
     if verbose:
         print("\nShare de Modal DENTRO de Cada Serviço (%):")
@@ -72,6 +81,7 @@ def executar(df, verbose=True):
 
     return {
         'lead_times': lead_times.to_dict('index'),
+        'share_geral_modal': share_geral_modal.to_dict(),
         'share_modal_por_servico': share_modal_por_servico,
         'ticket_modal': ticket_modal.to_dict(),
         'ticket_modal_servico': ticket_modal_servico['ticket_medio'].to_dict()

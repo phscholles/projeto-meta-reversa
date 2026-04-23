@@ -39,6 +39,15 @@ def _salvar_outputs(metricas, df_rec, tabela_aberturas, tabela_faturamento,
         f'{DIR_OUTPUTS}/ticket_medio_modal_servico.csv', index=False, encoding='utf-8-sig'
     )
 
+    # --- Share geral por modal ---
+    share_geral_rows = [
+        {'modal': modal, 'share_pct': pct}
+        for modal, pct in metricas['share_geral_modal'].items()
+    ]
+    pd.DataFrame(share_geral_rows).to_csv(
+        f'{DIR_OUTPUTS}/share_geral_modal.csv', index=False, encoding='utf-8-sig'
+    )
+
     # --- Share de modal por serviço ---
     share_rows = []
     for servico, shares in metricas['share_modal_por_servico'].items():
